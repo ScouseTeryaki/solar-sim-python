@@ -1,52 +1,28 @@
 import numpy as np
-import SolarSystemParticles
-import Particle
-import pygame
+from SolarSystem3d import SolarSystem, SolarSystemBody
+from NumericalIntegrationMethods import Methods
 
-# Define constants for the screen width and height
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+# Define delta time constant
+dt = 100
 
-pygame.init()
+solar_system = SolarSystem(400)
 
-screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
+sunMass_kg = 1.9885e30  # https://en.wikipedia.org/wiki/Sun
+sunRadius_m = 695700 * 1e3  # https://en.wikipedia.org/wiki/Sun
 
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+# The sun is at the centre of the simulation
+Sun = SolarSystemBody(
+    solar_system=solar_system,
+    position=np.array([0, 0, 0]),
+    velocity=np.array([0, 0, 0]),
+    acceleration=np.array([0, 0, 0]),
+    name="Sun",
+    mass=sunMass_kg
+)
 
-    screen.fill((0, 0, 0))
+while True:
+    solar_system.update_all(dt=dt, method=Methods.EULER_METHOD)
+    solar_system.draw_all()
 
-    dt = 10
-    solarSystemParticles = SolarSystemParticles.Solar_System
 
-    # Loop over all particles
-    for particle_i in solarSystemParticles:
-        # Create temporary copy of particle list, remove the
-        # particle we are going to update properties for
-        tempSolarSystemParticles = solarSystemParticles.copy()
-        tempSolarSystemParticles.remove(particle_i)
-        # Loop over temp particle list
-        for particle_j in tempSolarSystemParticles:
-            # Update particle_i using temporary particle
-            particle_i.update(particle_j, dt, Particle.EULER_METHOD)
 
-            screen_center = np.array([SCREEN_WIDTH / 2 - particle_i.sprite.radius_offset,
-                                      SCREEN_HEIGHT / 2 - particle_i.sprite.radius_offset])
-
-            particle_position_2d = np.array([particle_i.position[0], particle_i.position[2]])
-            particle_position_2d = np.multiply(particle_position_2d, 1e-10)
-
-            print(particle_i.name)
-            print(particle_i.position[0])
-            print(particle_position_2d)
-
-            particle_screen_position = np.add(screen_center, particle_position_2d)
-
-            screen.blit(particle_i.sprite.surface,
-                        (particle_screen_position[0],
-                         particle_screen_position[1]))
-
-    pygame.display.flip()
