@@ -1,59 +1,72 @@
 import numpy as np
 import math
+import itertools
 import matplotlib.pyplot as plt
-from NumericalIntegrationMethods import Methods, verlet_method_update, euler_method_update, euler_cromer_method_update,\
-    euler_richardson_method_update
+from NumericalIntegrationMethods import Methods, euler_method_update, euler_cromer_method_update,\
+    euler_richardson_method_update, verlet_method_update
+
+# Define gravitational constant
+G = 6.67408E-11
 
 
 class SolarSystem:
-    def __init__(self, size):
-        self.size = size
+    def __init__(self, plt_size):
+        self.plt_size = plt_size
         self.bodies = []
+        self.star = None
 
         self.fig, self.ax = plt.subplots(
             1,
             1,
             subplot_kw={"projection": "3d"},
-            figsize=(self.size / 50, self.size / 50)
+            figsize=(self.plt_size / 50, self.plt_size / 50)
         )
         self.fig.tight_layout()
 
     def add_body(self, body):
         self.bodies.append(body)
 
+    def add_star(self, star):
+        self.star = star
+
     def update_all(self, dt, method):
+        self.bodies.sort(key=lambda item: item.position[0])
         for body in self.bodies:
-            # Create temporary copy of particle list, remove the
-            # particle we are going to update properties for
-            temp_bodies = self.bodies.copy()
-            temp_bodies.remove(body)
-            # Loop over temp particle list
-            for particle_j in temp_bodies:
-                # Update particle_i using temporary particle
-                body.update(particle_j, dt, method)
-            body.draw()
+            if method == Methods.VERLET_METHOD:
+                body.verlet_update_position(dt=dt, bodies=self.bodies)
+            else:
+                body.update_position(dt=dt, method=method)
+                body.draw()
 
     def draw_all(self):
-        self.ax.set_xlim((-self.size / 2, self.size / 2))
-        self.ax.set_ylim((-self.size / 2, self.size / 2))
-        self.ax.set_zlim((-self.size / 2, self.size / 2))
+        self.ax.set_xlim((-self.plt_size / 2, self.plt_size / 2))
+        self.ax.set_ylim((-self.plt_size / 2, self.plt_size / 2))
+        self.ax.set_zlim((-self.plt_size / 2, self.plt_size / 2))
         plt.pause(0.001)
         self.ax.clear()
 
+    def calculate_all_gravitational_interactions(self):
+        bodies_copy = self.bodies.copy()
+        for body in bodies_copy:
+            body.acceleration = np.array([0, 0, 0], dtype=float)  # Set acceleration to 0
+            removed_body_bodies = bodies_copy.copy()
+            removed_body_bodies.remove(body)
+            for other_body in removed_body_bodies:
+                body.update_gravitational_acceleration_from_other_body(other_body)
+
 
 class SolarSystemBody:
-    G = 6.67408E-11
     min_display_size = 1.0
     display_log_base = 1.3
 
     def __init__(
             self,
-            solar_system=SolarSystem(400),
+            solar_system,
             position=np.array([0, 0, 0], dtype=float),
             velocity=np.array([0, 0, 0], dtype=float),
             acceleration=np.array([0, 0, 0], dtype=float),
             name='Unknown Particle',
-            mass=1.0
+            mass=1
     ):
         self.solar_system = solar_system
         self.name = name
@@ -83,32 +96,57 @@ class SolarSystemBody:
             color=self.color
         )
 
-    def initialize_velocity(self, body, distance):
-        # from centrifugal force = gravitational force
-        velocity = np.sqrt(self.G * body.mass / distance)
-        self.velocity = np.array([0, velocity, 0])
-
-    def update(self, body, dt, method):
-        acceleration = self.calculate_gravitational_acceleration(body, self.position)
-        np.add(self.acceleration, acceleration, out=self.acceleration)
-
+    def update_position(self, dt, method):
         if method == Methods.EULER_METHOD:
-            euler_method_update(dt, self)
+            self.position, self.velocity = euler_method_update(dt, self)
         elif method == Methods.EULER_CROMER_METHOD:
-            euler_cromer_method_update(dt, self)
+            self.position, self.velocity = euler_cromer_method_update(dt, self)
         elif method == Methods.EULER_RICHARDSON_METHOD:
-            euler_richardson_method_update(dt, self)
-        elif method == Methods.VERLET_METHOD:
-            verlet_method_update(dt, self, body)
+            self.position, self.velocity = euler_richardson_method_update(dt, self)
 
-    def calculate_gravitational_acceleration(self, body, position):
-        distance_vector = np.subtract(position, body.position.astype(float))
+    def verlet_update_position(self, dt, bodies):
+        self.position, self.velocity = verlet_method_update(dt, self, bodies)
+
+    def update_gravitational_acceleration_from_other_body(self, other):
+        gravity = self.calculate_gravitational_acceleration_from_other_body(other)
+        self.acceleration = np.add(self.acceleration, gravity)
+
+    def calculate_gravitational_acceleration_from_other_body(self, other):
+        distance_vector = np.subtract(other.position.astype(float), self.position)
         distance = np.linalg.norm(distance_vector)
         distance_unit_vector = np.divide(distance_vector, distance)
-        gravity_scalar = -(self.G * body.mass) / distance ** 2
-        return np.multiply(gravity_scalar, distance_unit_vector)
+        gravity_mag = other.mass / distance ** 2
+        gravity = np.multiply(gravity_mag, distance_unit_vector)
+        return gravity
 
-    def calculate_kinetic_energy(self):
-        v_norm = np.linalg.norm(self.velocity)
-        ke = 1 / 2 * self.mass * v_norm ** 2
-        return ke
+
+class Planet(SolarSystemBody):
+    colours = itertools.cycle([(1, 0, 0), (0, 1, 0), (0, 0, 1)])
+
+    def __init__(
+        self,
+        solar_system,
+        name,
+        mass=10,
+        position=np.array([0, 0, 0], dtype=float),
+        velocity=np.array([0, 0, 0], dtype=float),
+        acceleration=np.array([0, 0, 0], dtype=float),
+    ):
+        super(Planet, self).__init__(solar_system, position, velocity, acceleration, name, mass)
+        self.colour = next(Planet.colours)
+
+
+class Star(SolarSystemBody):
+    def __init__(
+            self,
+            solar_system,
+            name,
+            mass=10_000,
+            position=np.array([0, 0, 0], dtype=float),
+            velocity=np.array([0, 0, 0], dtype=float),
+            acceleration=np.array([0, 0, 0], dtype=float),
+    ):
+        super(Star, self).__init__(solar_system, position, velocity, acceleration, name, mass)
+        self.colour = "yellow"
+
+        self.solar_system.add_star(self)

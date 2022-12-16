@@ -30,15 +30,27 @@ def euler_richardson_method_update(dt, body):
     return new_position, new_velocity
 
 
-def verlet_method_update(dt, body_1, body_2):
+def verlet_method_update(dt, body, bodies):
     # Euler Richardson Method to get a_n+1
-    velocity_nplus1 = np.add(body_1.velocity, 1 / 2 * body_1.acceleration * dt)
-    position_nplus1 = np.add(body_1.position, 1 / 2 * velocity_nplus1 * dt)
+    position_nplus1, velocity_nplus1 = euler_richardson_method_update(dt, body)
 
-    # fix later!!!!!!
-    acceleration_nplus1 = SolarSystemBody.calculate_gravitational_acceleration(body_2, position_nplus1)
+    acceleration_nplus1 = 0
+    other_bodies = bodies.copy()
+    other_bodies.remove(body)
+    for other_body in other_bodies:
+        acceleration_nplus1 += calculate_gravitational_acceleration_from_other_body(other_body,
+                                                                                    position_nplus1)
 
     # https://en.wikipedia.org/wiki/Verlet_integration
-    new_position = np.add(body_1.position, (body_1.velocity * dt) + (1 / 2 * body_1.acceleration * dt ** 2))
-    new_velocity = np.add(body_1.velocity, 1 / 2 * (body_1.acceleration + acceleration_nplus1) * dt)
+    new_position = np.add(body.position, (body.velocity * dt) + (1 / 2 * body.acceleration * dt ** 2))
+    new_velocity = np.add(body.velocity, 1 / 2 * (body.acceleration + acceleration_nplus1) * dt)
     return new_position, new_velocity
+
+
+def calculate_gravitational_acceleration_from_other_body(other_body, position):
+    distance_vector = np.subtract(other_body.position.astype(float), position)
+    distance = np.linalg.norm(distance_vector)
+    distance_unit_vector = np.divide(distance_vector, distance)
+    gravity_mag = other_body.mass / distance ** 2
+    gravity = np.multiply(gravity_mag, distance_unit_vector)
+    return gravity
