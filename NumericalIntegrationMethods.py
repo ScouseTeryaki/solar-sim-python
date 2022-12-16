@@ -3,10 +3,10 @@ import numpy as np
 
 
 class Methods(Enum):
-    EULER_METHOD = 1
-    EULER_CROMER_METHOD = 2
-    EULER_RICHARDSON_METHOD = 3
-    VERLET_METHOD = 4
+    EULER_METHOD = "EulerMethod"
+    EULER_CROMER_METHOD = "CromerMethod"
+    EULER_RICHARDSON_METHOD = "RichardsonMethod"
+    VERLET_METHOD = "VerletMethod"
 
 
 def euler_method_update(dt, body):

@@ -10,18 +10,20 @@ G = 6.67408E-11
 
 
 class SolarSystem:
-    def __init__(self, plt_size):
+    def __init__(self, plt_size, use_plt):
         self.plt_size = plt_size
         self.bodies = []
         self.star = None
+        self.use_plt = use_plt
 
-        self.fig, self.ax = plt.subplots(
-            1,
-            1,
-            subplot_kw={"projection": "3d"},
-            figsize=(self.plt_size / 50, self.plt_size / 50)
-        )
-        self.fig.tight_layout()
+        if self.use_plt:
+            self.fig, self.ax = plt.subplots(
+                1,
+                1,
+                subplot_kw={"projection": "3d"},
+                figsize=(self.plt_size / 50, self.plt_size / 50)
+            )
+            self.fig.tight_layout()
 
     def add_body(self, body):
         self.bodies.append(body)
@@ -36,6 +38,7 @@ class SolarSystem:
                 body.verlet_update_position(dt=dt, bodies=self.bodies)
             else:
                 body.update_position(dt=dt, method=method)
+            if self.use_plt:
                 body.draw()
 
     def draw_all(self):

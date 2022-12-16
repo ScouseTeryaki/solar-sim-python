@@ -2,7 +2,7 @@ from SolarSystem3d import SolarSystem, Star, Planet
 from NumericalIntegrationMethods import Methods
 import numpy as np
 
-solar_system = SolarSystem(800)
+solar_system = SolarSystem(800, use_plt=True)
 
 sun = Star(solar_system, "Sun")
 
@@ -24,5 +24,8 @@ planets = (
 
 while True:
     solar_system.calculate_all_gravitational_interactions()
-    solar_system.update_all(dt=1, method=Methods.EULER_METHOD)
+    solar_system.update_all(dt=1, method=Methods.VERLET_METHOD)  # Use desired method, cannot run multiple instances as
+                                                                 # as it is very resource heavy
+    for body in solar_system.bodies:
+        print(body)
     solar_system.draw_all()
